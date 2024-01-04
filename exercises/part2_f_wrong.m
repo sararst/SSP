@@ -24,9 +24,9 @@ end
 
 for i = 1:num_realizations
     % calculate sample autocorrelations
-    r0 = (A1.^2) / 2 * cos(2 * pi * f1 * 0) + sigma_squared;
-    r1 = (A1.^2) / 2 * cos(2 * pi * f1 * 1);
-    r2 = (A1.^2) / 2 * cos(2 * pi * f1 * 2);
+    r0 = mean(realizations(:, i).^2);
+    r1 = mean(realizations(1:end-1, i) .* realizations(2:end, i));
+    r2 = mean(realizations(1:end-2, i) .* realizations(3:end, i));
 
     % if r1 is different than 0
     if r1 ~= 0
