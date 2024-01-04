@@ -1,115 +1,96 @@
 % point B
-
 % generate one realization of yk with N = 256 samples
 N = 256;
 [y, ~] = sig(N);
 
 % define the window
 window_type = 'boxcar';
+w = window(window_type, N);
+y_windowed = y.*w;
+figure;
+subplot(2, 3, 1)
+plot(y_windowed)
+xlabel('Signal')
+ylabel('y')
+grid on
 
 % define the range of N' values (called Np)
 Np_values = [64, 128, 256, 512, 1024];
-
-figure;
 
 for i = 1:length(Np_values)
     Np = Np_values(i);
     win = window(window_type, Np);
     
-    % apply the window to the signal
-    % y_windowed = y(1:min(length(y), length(win))) .* win(1:min(length(y), length(win)));
     if Np < N
-        y_windowed = y(1:Np) .* win(1:Np);
+        % y_windowed = y(1:Np) .* win(1:Np);
+        subplot(2, 3, i+1)
+        periodo(y_windowed(1:Np), Np)
+        title(['Periodogram with Np = ' num2str(Np)]);
     else
-        y_windowed = [y; zeros(Np - N, 1)] .* win;
+        % y_windowed = [y; zeros(Np - N, 1)] .* win;
+        subplot(2, 3, i+1)
+        periodo(y_windowed, Np)
+        title(['Periodogram with Np = ' num2str(Np)]);
     end
-    subplot(2, 3, i);
-    % compute the periodogram
-    periodo(y_windowed, Np);
-    title(['Periodogram with Np = ' num2str(Np)]);
 end
-
-sgtitle('Effect of N prime on periodogram');
-
+sgtitle('Effect of different values of N on the periodogram');
 
 
-% point C
+%--------------------------- point C ------------------------------------
 N = length(y);
-
-% Reverse the signal
 y_reverse = y(N:-1:1);
-
-% Convolve the signal with its reversed version
-correlation_result = conv(y, y_reverse);
-
-% Extract the correlation sequence r0:n
-n_max = min(N - 1, length(correlation_result) - N + 1);
-correlation_sequence = correlation_result(N:N + n_max) / N;
-
+convolution = conv(y, y_reverse)/numel(y);
+correlation_sequence = zeros(1, N);
+for i=1:N
+    correlation_sequence(i) = convolution(N+i-1);
+end
 % Display the correlation sequence
 figure;
-stem(0:n_max, correlation_sequence);
+stem(0:N-1, correlation_sequence);
 title('Correlation Sequence');
 xlabel('n');
 ylabel('Correlation Value');
 grid on;
 
+%--------------------------- point D ------------------------------------
+[pred_error_var, pred_error_filter, parcors_seq] = my_levinson(correlation_sequence);
+N = 1024;
+filter_f = fft(pred_error_filter, N);
+filter_f = filter_f(1:(N/2)+1);
+f = 0:1/N:0.5;
+AR_spectrum = pred_error_var(end)./(abs(filter_f).^2);
 
-% point D
-
-prediction_order = 20;
-% Call the levinson function
-[sigma2_f, A, K] = levinson(correlation_sequence(1:prediction_order+1));
-
-
-% autoregressive spectrum estimate
 figure;
-N = 1024; 
-A_padded = [1; A(:, end); zeros(N - length(A), 1)];
-AR_spectrum = abs(fft(A_padded, N)).^2;
-freq_axis = (0:N - 1) / N;
 
-
-% Plot the periodogram
-subplot(2, 1, 1);
-periodo(y, 1024);
-title('Periodogram with N = 1024');
-
-% Plot the autoregressive spectrum estimate
-subplot(2, 1, 2);
-plot(freq_axis, 10 * log10(AR_spectrum));
+subplot(4, 1, 1);
+plot(f, 10*log10(AR_spectrum))
 hold on;
+periodo(y, 1024)
+title('Periodogram and Autoregressive Spectrum Estimate')
+legend('Autoregressive Spectrum Estimate', 'Periodogram')
+xlabel('Normalized Frequency')
+ylabel('dB')
 
-title('Autoregressive Spectrum Estimate');
-xlabel('Normalized Frequency');
-ylabel('dB');
-grid on;
-% Adjust layout
-sgtitle('Periodogram and Autoregressive Spectrum Estimate');
+subplot(4, 1, 2);
+stem(0:20, pred_error_filter)
+axis([0, 20, -inf, inf])
+title('Filter Coefficients')
+xlabel('Coefficient Index')
+ylabel('A(0:20)')
+grid on
 
+subplot(4, 1, 3);
+stem(0:20, pred_error_var)
+axis([0, 20, -inf, inf])
+title('Evolution of the Prediction Error Variance')
+xlabel('Order')
+ylabel('sigma^2(0:20)')
+grid on
 
-% Plot the values of A20,0:20
-subplot(2, 1, 2);
-stem(0:prediction_order, A(:,end));
-title('Values of A20,0:20');
-xlabel('Coefficient Index');
-ylabel('Coefficient Value');
-grid on;
-
-% Plot the evolution of σ^2_f,0:20 and the PARCORS
-figure;
-
-subplot(2, 1, 1);
-stem(0:prediction_order, sigma2_f);
-title('Evolution of \sigma^2_f,0:20');
-xlabel('Order');
-ylabel('\sigma^2_f');
-grid on;
-
-subplot(2, 1, 2);
-stem(1:prediction_order, K);
-title('Evolution of PARCORS K1:20');
-xlabel('Order');
-ylabel('PARCORS');
-grid on;
-
+subplot(4, 1, 4);
+stem(1:20, parcors_seq)
+axis([1, 20, -inf, inf])
+title('PARCORS')
+xlabel('Order')
+ylabel('K(1:20)')
+grid on
